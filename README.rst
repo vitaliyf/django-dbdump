@@ -10,8 +10,8 @@ To use, add 'dbdump' to your INSTALLED_APPS.
 
 Usage:
 
-`$ manage.py dbdump`
-`$ manage.py dbdump --db-name=mydb --debug --compress=gzip`
+- `$ manage.py dbdump`
+- `$ manage.py dbdump --db-name=mydb --debug --compress=gzip`
 
 You can dump only table schema without data or exclude tables completely
 using DB_DUMP_EMPTY_TABLES and DB_DUMP_EXCLUDED_TABLES settings inside
