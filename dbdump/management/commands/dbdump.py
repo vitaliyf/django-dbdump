@@ -15,6 +15,7 @@ class Command(BaseCommand):
 
     option_list = BaseCommand.option_list + (
         make_option('--destination', dest='backup_directory', default='backups', help='Destination (path) where to place database dump file.'),
+        make_option('--filename', dest='filename',  default=False, help='Name of the file'),
         make_option('--db-name', dest='database_name', default='default', help='Name of database (as defined in settings.DATABASES[]) to dump.'),
         make_option('--compress', dest='compression_command', help='Optional command to run (e.g., gzip) to compress output file.'),
         make_option('--quiet', dest='quiet', action='store_true', default=False, help='Be silent.'),
@@ -40,11 +41,15 @@ class Command(BaseCommand):
         self.empty_tables = settings.DATABASES[self.db_name].get('DB_DUMP_EMPTY_TABLES', [])
 
         backup_directory = options['backup_directory']
+        filename = options['filename']
 
         if not os.path.exists(backup_directory):
             os.makedirs(backup_directory)
 
-        outfile = self.destination_filename(backup_directory, self.db)
+        if not filename:
+            outfile = self.destination_filename(backup_directory, self.db)
+        else:
+            outfile = os.path.join(backup_directory, filename)
 
         if 'mysql' in self.engine:
             self.do_mysql_backup(outfile)
