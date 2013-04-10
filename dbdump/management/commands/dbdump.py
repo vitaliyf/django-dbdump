@@ -4,7 +4,7 @@ Command to do a database dump using database's native tools.
 Originally inspired by http://djangosnippets.org/snippets/823/
 """
 
-import os, popen2, time
+import os, popen2, time, shutil, sys
 from optparse import make_option
 
 from django.core.management.base import BaseCommand, CommandError
@@ -15,12 +15,14 @@ class Command(BaseCommand):
 
     option_list = BaseCommand.option_list + (
         make_option('--destination', dest='backup_directory', default='backups', help='Destination (path) where to place database dump file.'),
-        make_option('--filename', dest='filename',  default=False, help='Name of the file'),
+        make_option('--filename', dest='filename',  default=False, help='Name of the file, or - for stdout'),
         make_option('--db-name', dest='database_name', default='default', help='Name of database (as defined in settings.DATABASES[]) to dump.'),
         make_option('--compress', dest='compression_command', help='Optional command to run (e.g., gzip) to compress output file.'),
         make_option('--quiet', dest='quiet', action='store_true', default=False, help='Be silent.'),
         make_option('--debug', dest='debug', action='store_true', default=False, help='Show commands that are being executed.'),
     )
+
+    OUTPUT_STDOUT = object()
 
     def handle(self, *args, **options):
         self.db_name = options.get('database_name', 'default')
@@ -48,6 +50,9 @@ class Command(BaseCommand):
 
         if not filename:
             outfile = self.destination_filename(backup_directory, self.db)
+        elif filename == "-":
+            outfile = self.OUTPUT_STDOUT
+            self.quiet = True
         else:
             outfile = os.path.join(backup_directory, filename)
 
@@ -82,12 +87,23 @@ class Command(BaseCommand):
         if self.excluded_tables or self.empty_tables:
             excluded_args += ['--ignore-table=%s.%s' % (self.db, excluded_table) for excluded_table in self.excluded_tables + self.empty_tables]
 
-        self.run_command('mysqldump %s > %s' % (' '.join(excluded_args + [self.db]), outfile))
+        command = 'mysqldump %s' % (' '.join(excluded_args + [self.db]))
+
+        if outfile != self.OUTPUT_STDOUT:
+            command += " > %s" % outfile
+
+        self.run_command(command)
 
         if self.empty_tables:
             no_data_args = main_args[:] + ['--no-data', self.db]
             no_data_args += [empty_table for empty_table in self.empty_tables]
-            self.run_command('mysqldump %s >> %s' % (' '.join(no_data_args), outfile))
+
+            command = 'mysqldump %s' % (' '.join(no_data_args))
+
+            if outfile != self.OUTPUT_STDOUT:
+                command += " >> %s" % outfile
+
+            self.run_command(command)
 
     def run_command(self, command):
         if self.debug:
@@ -117,15 +133,26 @@ class Command(BaseCommand):
         if self.excluded_tables or self.empty_tables:
             excluded_args += ['--exclude-table=%s' % excluded_table for excluded_table in self.excluded_tables + self.empty_tables]
 
-        self.run_postgresql_command('pg_dump %s > %s' % (' '.join(excluded_args), outfile))
+        command = 'pg_dump %s' % (' '.join(excluded_args))
+
+        if outfile != self.OUTPUT_STDOUT:
+            command += ' > %s' % outfile
+
+        self.run_postgresql_command(command, outfile)
 
         if self.empty_tables:
             no_data_args = main_args[:] + ['--schema-only']
             no_data_args += ['--table=%s' % empty_table for empty_table in self.empty_tables]
             no_data_args += [self.db]
-            self.run_postgresql_command('pg_dump %s > %s' % (' '.join(no_data_args), outfile))
 
-    def run_postgresql_command(self, command):
+            command = 'pg_dump %s' % (' '.join(no_data_args))
+
+            if outfile != self.OUTPUT_STDOUT:
+                command += ' >> %s' % outfile
+
+            self.run_postgresql_command(command, outfile)
+
+    def run_postgresql_command(self, command, outfile):
         if self.debug:
             print command
 
@@ -134,3 +161,6 @@ class Command(BaseCommand):
         if self.password:
             pipe.tochild.write('%s\n' % self.password)
             pipe.tochild.close()
+
+        if outfile == self.OUTPUT_STDOUT:
+            shutil.copyfileobj(pipe.fromchild, sys.stdout)
