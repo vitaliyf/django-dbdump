@@ -112,10 +112,6 @@ class Command(BaseCommand):
         os.system(command)
 
     def do_postgresql_backup(self, outfile):
-        print 'This code is totally untested so it is commented out.'
-
-        return
-        
         if not self.quiet:
             print 'Doing PostgreSQL backup of database "%s" into %s' % (self.db, outfile)
 
@@ -133,7 +129,7 @@ class Command(BaseCommand):
         if self.excluded_tables or self.empty_tables:
             excluded_args += ['--exclude-table=%s' % excluded_table for excluded_table in self.excluded_tables + self.empty_tables]
 
-        command = 'pg_dump %s' % (' '.join(excluded_args))
+        command = 'pg_dump %s %s' % (' '.join(excluded_args), self.db)
 
         if outfile != self.OUTPUT_STDOUT:
             command += ' > %s' % outfile
@@ -145,7 +141,7 @@ class Command(BaseCommand):
             no_data_args += ['--table=%s' % empty_table for empty_table in self.empty_tables]
             no_data_args += [self.db]
 
-            command = 'pg_dump %s' % (' '.join(no_data_args))
+            command = 'pg_dump %s %s' % (' '.join(no_data_args), self.db)
 
             if outfile != self.OUTPUT_STDOUT:
                 command += ' >> %s' % outfile
