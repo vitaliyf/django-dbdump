@@ -20,6 +20,7 @@ class Command(BaseCommand):
         make_option('--compress', dest='compression_command', help='Optional command to run (e.g., gzip) to compress output file.'),
         make_option('--quiet', dest='quiet', action='store_true', default=False, help='Be silent.'),
         make_option('--debug', dest='debug', action='store_true', default=False, help='Show commands that are being executed.'),
+        make_option('--pgpass', dest='pgpass', action='store_true', default=False, help='Use the ~/.pgdump file for password instead of prompting (PostgreSQL only).'),
     )
 
     OUTPUT_STDOUT = object()
@@ -29,6 +30,7 @@ class Command(BaseCommand):
         self.compress = options.get('compression_command')
         self.quiet = options.get('quiet')
         self.debug = options.get('debug')
+	self.pgpass = options.get('pgpass')
 
         if self.db_name not in settings.DATABASES:
             raise CommandError('Database %s is not defined in settings.DATABASES' % self.db_name)
@@ -118,7 +120,7 @@ class Command(BaseCommand):
         main_args = []
         if self.user:
             main_args += ['--username=%s' % self.user]
-        if self.password:
+        if self.password and not self.pgpass:
             main_args += ['--password']
         if self.host:
             main_args += ['--host=%s' % self.host]
