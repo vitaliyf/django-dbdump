@@ -1,3 +1,7 @@
+2014-04-16 - Version 1.1
+ - Added --raw-args option that passes arguments as-is to dump command (dk-dkopen)
+ - Made use of ~/.pgpass possible (JocelynDelalande)
+
 2013-04-12 - Version 1.0.1
  - Added missing README/CHANGES files to MANIFEST.in
 
