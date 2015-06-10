@@ -4,7 +4,7 @@ Command to do a database dump using database's native tools.
 Originally inspired by http://djangosnippets.org/snippets/823/
 """
 
-import os, popen2, time, shutil, sys
+import os, time, shutil, sys, subprocess
 from optparse import make_option
 
 from django.core.management.base import BaseCommand, CommandError
@@ -161,11 +161,16 @@ class Command(BaseCommand):
         if self.debug:
             print(command)
 
-        pipe = popen2.Popen4(command)
-
-        if self.password:
-            pipe.tochild.write('%s\n' % self.password)
-            pipe.tochild.close()
-
         if outfile == self.OUTPUT_STDOUT:
-            shutil.copyfileobj(pipe.fromchild, sys.stdout)
+            kwargs = {'stdout': sys.stdout, 'stderr': sys.stderr}
+        else:
+            kwargs = {}
+
+        process = subprocess.Popen(
+            command, shell=True,
+            stdin=subprocess.PIPE, **kwargs)
+
+        process.wait()
+        if self.password:
+            process.stdin.write('%s\n' % self.password)
+            process.stdin.close()
