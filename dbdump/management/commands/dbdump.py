@@ -76,7 +76,7 @@ class Command(BaseCommand):
 
     def do_mysql_backup(self, outfile, raw_args=''):
         if not self.quiet:
-            print 'Doing MySQL backup of database "%s" into %s' % (self.db, outfile)
+            print('Doing MySQL backup of database "%s" into %s' % (self.db, outfile))
 
         main_args = []
         if self.user:
@@ -114,13 +114,13 @@ class Command(BaseCommand):
 
     def run_command(self, command):
         if self.debug:
-            print command
+            print(command)
 
         os.system(command)
 
     def do_postgresql_backup(self, outfile, raw_args=''):
         if not self.quiet:
-            print 'Doing PostgreSQL backup of database "%s" into %s' % (self.db, outfile)
+            print('Doing PostgreSQL backup of database "%s" into %s' % (self.db, outfile))
 
         main_args = []
         if self.user:
@@ -159,7 +159,7 @@ class Command(BaseCommand):
 
     def run_postgresql_command(self, command, outfile):
         if self.debug:
-            print command
+            print(command)
 
         pipe = popen2.Popen4(command)
 
