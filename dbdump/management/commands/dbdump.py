@@ -4,7 +4,7 @@ Command to do a database dump using database's native tools.
 Originally inspired by http://djangosnippets.org/snippets/823/
 """
 
-import os, popen2, time, shutil, sys
+import os, time, shutil, sys, subprocess
 from optparse import make_option
 
 from django.core.management.base import BaseCommand, CommandError
@@ -31,7 +31,7 @@ class Command(BaseCommand):
         self.compress = options.get('compression_command')
         self.quiet = options.get('quiet')
         self.debug = options.get('debug')
-	self.pgpass = options.get('pgpass')
+        self.pgpass = options.get('pgpass')
 
         if self.db_name not in settings.DATABASES:
             raise CommandError('Database %s is not defined in settings.DATABASES' % self.db_name)
@@ -59,7 +59,7 @@ class Command(BaseCommand):
         else:
             outfile = os.path.join(backup_directory, filename)
 
-	raw_args = options['raw_args']
+        raw_args = options['raw_args']
 
         if 'mysql' in self.engine:
             self.do_mysql_backup(outfile, raw_args=raw_args)
@@ -76,7 +76,7 @@ class Command(BaseCommand):
 
     def do_mysql_backup(self, outfile, raw_args=''):
         if not self.quiet:
-            print 'Doing MySQL backup of database "%s" into %s' % (self.db, outfile)
+            print('Doing MySQL backup of database "%s" into %s' % (self.db, outfile))
 
         main_args = []
         if self.user:
@@ -88,7 +88,7 @@ class Command(BaseCommand):
         if self.port:
             main_args += ['--port=%s' % self.port]
         if raw_args:
-            main_args += [raw_args]	
+            main_args += [raw_args]
 
         excluded_args = main_args[:]
         if self.excluded_tables or self.empty_tables:
@@ -114,13 +114,13 @@ class Command(BaseCommand):
 
     def run_command(self, command):
         if self.debug:
-            print command
+            print(command)
 
         os.system(command)
 
     def do_postgresql_backup(self, outfile, raw_args=''):
         if not self.quiet:
-            print 'Doing PostgreSQL backup of database "%s" into %s' % (self.db, outfile)
+            print('Doing PostgreSQL backup of database "%s" into %s' % (self.db, outfile))
 
         main_args = []
         if self.user:
@@ -132,8 +132,8 @@ class Command(BaseCommand):
         if self.port:
             main_args += ['--port=%s' % self.port]
         if raw_args:
-            main_args += [raw_args]	
- 
+            main_args += [raw_args]
+
         excluded_args = main_args[:]
         if self.excluded_tables or self.empty_tables:
             excluded_args += ['--exclude-table=%s' % excluded_table for excluded_table in self.excluded_tables + self.empty_tables]
@@ -159,13 +159,18 @@ class Command(BaseCommand):
 
     def run_postgresql_command(self, command, outfile):
         if self.debug:
-            print command
-
-        pipe = popen2.Popen4(command)
-
-        if self.password:
-            pipe.tochild.write('%s\n' % self.password)
-            pipe.tochild.close()
+            print(command)
 
         if outfile == self.OUTPUT_STDOUT:
-            shutil.copyfileobj(pipe.fromchild, sys.stdout)
+            kwargs = {'stdout': sys.stdout, 'stderr': sys.stderr}
+        else:
+            kwargs = {}
+
+        process = subprocess.Popen(
+            command, shell=True,
+            stdin=subprocess.PIPE, **kwargs)
+
+        process.wait()
+        if self.password:
+            process.stdin.write('%s\n' % self.password)
+            process.stdin.close()
