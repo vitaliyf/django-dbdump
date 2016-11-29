@@ -1,30 +1,96 @@
+# -*- coding: utf-8 -*-
 """
 Command to do a database dump using database's native tools.
 
 Originally inspired by http://djangosnippets.org/snippets/823/
 """
 
-import os, time, shutil, sys, subprocess
-from optparse import make_option
+import os
+import time
+import sys
+import subprocess
 
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
 
+
 class Command(BaseCommand):
     help = 'Dump database into a file. Only MySQL and PostgreSQL engines are supported.'
 
-    option_list = BaseCommand.option_list + (
-        make_option('--destination', dest='backup_directory', default='backups', help='Destination (path) where to place database dump file.'),
-        make_option('--filename', dest='filename',  default=False, help='Name of the file, or - for stdout'),
-        make_option('--db-name', dest='database_name', default='default', help='Name of database (as defined in settings.DATABASES[]) to dump.'),
-        make_option('--compress', dest='compression_command', help='Optional command to run (e.g., gzip) to compress output file.'),
-        make_option('--quiet', dest='quiet', action='store_true', default=False, help='Be silent.'),
-        make_option('--debug', dest='debug', action='store_true', default=False, help='Show commands that are being executed.'),
-        make_option('--pgpass', dest='pgpass', action='store_true', default=False, help='Use the ~/.pgdump file for password instead of prompting (PostgreSQL only).'),
-        make_option('--raw-args', dest='raw_args', default='', help='Argument(s) to pass to database dump command as is'),
-    )
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--destination',
+            dest='backup_directory',
+            default='backups',
+            help='Destination (path) where to place database dump file.'
+        )
 
-    OUTPUT_STDOUT = object()
+        parser.add_argument(
+            '--filename',
+            dest='filename',
+            default=False,
+            help='Name of the file, or - for stdout'
+        )
+
+        parser.add_argument(
+            '--db-name',
+            dest='database_name',
+            default='default',
+            help='Name of database (as defined in settings.DATABASES[]) to dump.'
+        )
+
+        parser.add_argument(
+            '--compress',
+            dest='compression_command',
+            help='Optional command to run (e.g., gzip) to compress output file.'
+        )
+
+        parser.add_argument(
+            '--quiet',
+            dest='quiet',
+            action='store_true',
+            default=False,
+            help='Be silent.')
+
+        parser.add_argument(
+            '--debug',
+            dest='debug',
+            action='store_true',
+            default=False,
+            help='Show commands that are being executed.'
+        )
+
+        parser.add_argument(
+            '--pgpass',
+            dest='pgpass',
+            action='store_true',
+            default=False,
+            help='Use the ~/.pgdump file for password instead of prompting (PostgreSQL only).'
+        )
+
+        parser.add_argument(
+            '--raw-args',
+            dest='raw_args',
+            default='',
+            help='Argument(s) to pass to database dump command as is'
+        )
+
+    def __init__(self, *args, **kwargs):
+        super(Command, self).__init__(*args, **kwargs)
+        self.db_name = None
+        self.compress = None
+        self.quiet = None
+        self.debug = None
+        self.pgpass = None
+        self.engine = None
+        self.db = None
+        self.user = None
+        self.password = None
+        self.host = None
+        self.port = None
+        self.excluded_tables = None
+        self.empty_tables = None
+        self.output_stdout = object()
 
     def handle(self, *args, **options):
         self.db_name = options.get('database_name', 'default')
@@ -54,7 +120,7 @@ class Command(BaseCommand):
         if not filename:
             outfile = self.destination_filename(backup_directory, self.db)
         elif filename == "-":
-            outfile = self.OUTPUT_STDOUT
+            outfile = self.output_stdout
             self.quiet = True
         else:
             outfile = os.path.join(backup_directory, filename)
@@ -71,7 +137,8 @@ class Command(BaseCommand):
         if self.compress:
             self.run_command('%s %s' % (self.compress, outfile))
 
-    def destination_filename(self, backup_directory, database_name):
+    @classmethod
+    def destination_filename(cls, backup_directory, database_name):
         return os.path.join(backup_directory, '%s_backup_%s.sql' % (database_name, time.strftime('%Y%m%d-%H%M%S')))
 
     def do_mysql_backup(self, outfile, raw_args=''):
@@ -79,24 +146,31 @@ class Command(BaseCommand):
             print('Doing MySQL backup of database "%s" into %s' % (self.db, outfile))
 
         main_args = []
+        
         if self.user:
-            main_args += ['--user=%s' % self.user]
+            main_args.append('--user=%s' % self.user)
+
         if self.password:
-            main_args += ['--password=%s' % self.password]
+            main_args.append('--password=%s' % self.password)
+
         if self.host:
-            main_args += ['--host=%s' % self.host]
+            main_args.append('--host=%s' % self.host)
+            
         if self.port:
-            main_args += ['--port=%s' % self.port]
+            main_args.append('--port=%s' % self.port)
+            
         if raw_args:
-            main_args += [raw_args]
+            main_args.append(raw_args)
 
         excluded_args = main_args[:]
+        
         if self.excluded_tables or self.empty_tables:
-            excluded_args += ['--ignore-table=%s.%s' % (self.db, excluded_table) for excluded_table in self.excluded_tables + self.empty_tables]
+            excluded_args += ['--ignore-table=%s.%s' % (self.db, excluded_table)
+                              for excluded_table in self.excluded_tables + self.empty_tables]
 
         command = 'mysqldump %s' % (' '.join(excluded_args + [self.db]))
 
-        if outfile != self.OUTPUT_STDOUT:
+        if outfile != self.output_stdout:
             command += " > %s" % outfile
 
         self.run_command(command)
@@ -107,7 +181,7 @@ class Command(BaseCommand):
 
             command = 'mysqldump %s' % (' '.join(no_data_args))
 
-            if outfile != self.OUTPUT_STDOUT:
+            if outfile != self.output_stdout:
                 command += " >> %s" % outfile
 
             self.run_command(command)
@@ -123,24 +197,31 @@ class Command(BaseCommand):
             print('Doing PostgreSQL backup of database "%s" into %s' % (self.db, outfile))
 
         main_args = []
+        
         if self.user:
-            main_args += ['--username=%s' % self.user]
+            main_args.append('--username=%s' % self.user)
+
         if self.password and not self.pgpass:
-            main_args += ['--password']
+            main_args.append('--password')
+
         if self.host:
-            main_args += ['--host=%s' % self.host]
+            main_args.append('--host=%s' % self.host)
+
         if self.port:
-            main_args += ['--port=%s' % self.port]
+            main_args.append('--port=%s' % self.port)
+
         if raw_args:
-            main_args += [raw_args]
+            main_args.append(raw_args)
 
         excluded_args = main_args[:]
+        
         if self.excluded_tables or self.empty_tables:
-            excluded_args += ['--exclude-table=%s' % excluded_table for excluded_table in self.excluded_tables + self.empty_tables]
+            excluded_args += ['--exclude-table=%s' % excluded_table
+                              for excluded_table in self.excluded_tables + self.empty_tables]
 
         command = 'pg_dump %s %s' % (' '.join(excluded_args), self.db)
 
-        if outfile != self.OUTPUT_STDOUT:
+        if outfile != self.output_stdout:
             command += ' > %s' % outfile
 
         self.run_postgresql_command(command, outfile)
@@ -152,7 +233,7 @@ class Command(BaseCommand):
 
             command = 'pg_dump %s %s' % (' '.join(no_data_args), self.db)
 
-            if outfile != self.OUTPUT_STDOUT:
+            if outfile != self.output_stdout:
                 command += ' >> %s' % outfile
 
             self.run_postgresql_command(command, outfile)
@@ -161,7 +242,7 @@ class Command(BaseCommand):
         if self.debug:
             print(command)
 
-        if outfile == self.OUTPUT_STDOUT:
+        if outfile == self.output_stdout:
             kwargs = {'stdout': sys.stdout, 'stderr': sys.stderr}
         else:
             kwargs = {}
@@ -171,6 +252,7 @@ class Command(BaseCommand):
             stdin=subprocess.PIPE, **kwargs)
 
         process.wait()
+
         if self.password:
             process.stdin.write('%s\n' % self.password)
             process.stdin.close()

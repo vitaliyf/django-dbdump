@@ -1,3 +1,6 @@
+2016-11-29 - Version 1.2
+ - Adjusted script to be Django >=1.8 compatible
+
 2014-04-16 - Version 1.1
  - Added --raw-args option that passes arguments as-is to dump command (dk-dkopen)
  - Made use of ~/.pgpass possible (JocelynDelalande)
