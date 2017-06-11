@@ -15,7 +15,7 @@ def read(fname):
 
 setup(
     name = 'django-dbdump',
-    version = '1.1',
+    version = '1.2',
     url = 'https://github.com/vitaliyf/django-dbdump/',
     download_url = 'https://github.com/vitaliyf/django-dbdump/',
     license = 'BSD',
@@ -35,6 +35,6 @@ setup(
         'Programming Language :: Python',
     ],
     install_requires=[
-        'Django>=1.2',
+        'Django>=1.8',
     ],
 )
